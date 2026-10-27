@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 from .workflow import Workflow
 from .weights import WeightFile
+from . import __version__
 
 ROLES = {'dit':'diffusion_models','text_encoder':'text_encoders','vae':'vae'}
 DEFAULT_HOME = Path.home()/'Library/Application Support/MQwen'
@@ -46,13 +47,13 @@ class Preferences:
             value=value.strip()
             if value:
                 path=Path(value).expanduser()
-                if not path.is_absolute():raise ValueError('请使用绝对路径')
+                if not path.is_absolute():raise ValueError('Use an absolute path')
                 value=str(path)
             if key in ROLES and value:
-                if not Path(value).is_file():raise ValueError(f'模型不存在: {value}')
+                if not Path(value).is_file():raise ValueError(f'Model not found: {value}')
                 WeightFile(value)  # Header validation; engine validates model compatibility.
             values[key]=value
-        if not values['download_dir']:raise ValueError('请选择下载目录')
+        if not values['download_dir']:raise ValueError('Choose a download folder')
         with self.lock:
             temp=self.path.with_suffix('.tmp')
             temp.write_text(json.dumps(values,ensure_ascii=False,indent=2)+'\n')
@@ -86,13 +87,13 @@ class Downloads:
             url=item['urls'][source];digest=item['sha256']
         else:raise ValueError('Unknown download source')
         parsed=urlparse(url)
-        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:raise ValueError('下载链接必须为公开 HTTPS URL')
-        if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('须提供文件 SHA-256，避免下载损坏或错误模型')
+        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:raise ValueError('Download URL must be a public HTTPS URL')
+        if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('Provide the file SHA-256 to verify the download')
         base=Path(self.preferences.values['download_dir']).expanduser()
         target=base/ROLES[role]/self.preferences.names[role]
-        if target.exists():raise ValueError('目标模型已存在，请选择已有文件或更换下载目录')
+        if target.exists():raise ValueError('Target model already exists; select it or change the download folder')
         with self.lock:
-            if self.thread and self.thread.is_alive():raise RuntimeError('已有下载任务')
+            if self.thread and self.thread.is_alive():raise RuntimeError('A download is already running')
             self.cancelled.clear()
             self.task=dict(role=role,source=source,status='downloading',received=0,total=item['bytes'] if source!='custom' else None,path=str(target),error=None)
             self.thread=threading.Thread(target=self._run,args=(url,digest,target),daemon=True)
@@ -115,9 +116,9 @@ class Downloads:
                 partial.unlink(missing_ok=True)
                 identity.write_text(json.dumps(fingerprint))
             offset=partial.stat().st_size if partial.exists() else 0
-            request=Request(url,headers={'User-Agent':'MQwen/0.3','Range':f'bytes={offset}-'} if offset else {'User-Agent':'MQwen/0.3'})
+            request=Request(url,headers={'User-Agent':f'MQwen/{__version__}','Range':f'bytes={offset}-'} if offset else {'User-Agent':f'MQwen/{__version__}'})
             with urlopen(request,timeout=30) as response:
-                if urlparse(response.url).scheme!='https':raise ValueError('拒绝非 HTTPS 重定向')
+                if urlparse(response.url).scheme!='https':raise ValueError('Non-HTTPS redirect rejected')
                 if offset and response.status==206:
                     content_range=response.headers.get('Content-Range','')
                     if not content_range.startswith(f'bytes {offset}-'):raise ValueError('Invalid resume response')
@@ -134,7 +135,7 @@ class Downloads:
                         if not chunk:break
                         file.write(chunk);received+=len(chunk)
                         self._update(received=received)
-                if total and received!=total:raise ValueError('下载未完成，可重试续传')
+                if total and received!=total:raise ValueError('Download incomplete; retry to resume')
             self._update(status='verifying')
             hasher=hashlib.sha256()
             with partial.open('rb') as file:
@@ -143,7 +144,7 @@ class Downloads:
                     hasher.update(chunk)
             if hasher.hexdigest()!=digest:
                 partial.unlink(missing_ok=True)
-                raise ValueError('SHA-256 不匹配，已移除损坏下载，请重试')
+                raise ValueError('SHA-256 mismatch; corrupted download removed, please retry')
             WeightFile(partial)
             # Never overwrite an existing model, including one created during download.
             os.link(partial,target);partial.unlink();identity.unlink(missing_ok=True)

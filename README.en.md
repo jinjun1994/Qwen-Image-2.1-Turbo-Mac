@@ -6,7 +6,7 @@ A local image studio for Apple Silicon, with a desktop app, WebUI, CLI and image
 
 ## Download and install
 
-Download `MQwen-0.3.0-arm64.dmg` from [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases), open it and drag `MQwen.app` into Applications. The desktop app bundles Python and runtime dependencies, **but not model weights**.
+Download `MQwen-0.4.0-arm64.dmg` from [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases), open it and drag `MQwen.app` into Applications. The desktop app bundles Python and runtime dependencies, **but not model weights**.
 
 - **Requirements:** Apple Silicon and macOS 26+. Tested on M3 Pro / 36GB / macOS 26.3. Other configurations have not been tested; weight size is not the total memory requirement.
 - **Signing:** this is an ad-hoc signed test build, without Apple Developer ID signing or notarization. Gatekeeper may block it on other Macs.
@@ -27,15 +27,15 @@ These steps follow [Apple's official guidance](https://support.apple.com/en-us/1
 
 ## Generate your first image
 
-1. Open MQwen. The top bar controls the **WebUI / API HTTP service**, at `http://127.0.0.1:7861` by default. Change the port if needed.
-2. Open “模型与 API” (Models & API), choose the Turbo DiT, text encoder and VAE files, then save their paths.
-3. Click “启动推理服务” (Start inference service) and wait for the models to load.
-4. Enter a prompt and set total pixels or resolution, aspect ratio and seed. Start with **512×512, standard 8 steps, cross-step cache off**.
-5. Generate, preview, cancel, browse history or save the PNG. Images and parameter JSON files are stored in `~/Pictures/MQwen/`.
+1. Open MQwen. The interface defaults to **English**; choose **中文** from the language selector to switch. The desktop toolbar and embedded WebUI stay in sync. The top bar controls the **WebUI / API HTTP service**, at `http://127.0.0.1:7861` by default. Change the port if needed.
+2. Open **Models & API**, choose the Turbo DiT, text encoder and VAE files, then save their paths.
+3. Click **Start inference** and wait for the models to load.
+4. Enter a prompt, or use **Random prompt** to fill one of six supplied presets without starting generation. Preset text stays in its original language. Set total pixels or resolution, aspect ratio and seed. Start with **512×512, standard 8 steps, cross-step cache off**.
+5. Generate, preview, cancel, browse history or save the PNG. **Move to Trash** in Recent images asks for confirmation and moves the PNG and parameter JSON together to the system Trash, where they can be recovered. Running images cannot be deleted. Each `MQwen-deleted-…` folder in Trash keeps the pair together; to restore gallery visibility, move the files back into the output folder and restart WebUI/API. Images and parameter JSON files are stored in `~/Pictures/MQwen/`.
 
 Models remain resident until the inference service is stopped. The page's Stop inference service button releases models while keeping HTTP available. The desktop's Stop WebUI / API button stops HTTP and releases models. Quitting the app stops its own service; shutdown during generation waits for the current GPU operation to finish.
 
-Settings: `~/Library/Application Support/MQwen/settings.json`. Logs: `server.log` in the same directory. The current desktop interface uses Chinese labels.
+Settings: `~/Library/Application Support/MQwen/settings.json`. Logs: `server.log` in the same directory. Language is remembered per browser in standalone WebUI and in app preferences on the desktop. Switching does not clear prompts, dimensions or unsaved model paths, and does not reload models. System file dialogs follow macOS language settings; technical diagnostics retain their original text.
 
 ## Model paths and downloads
 
@@ -56,7 +56,7 @@ The three files total approximately **17.28GB**, plus space for converted caches
 
 ## Performance
 
-**M3 Pro / 36GB, macOS 26.3, AC power, 512×512, standard 8 steps, approximate cache disabled.** Models are resident; the bundled teapot prompt and seed 42 are used.
+These measurements are from 0.3.0; 0.4.0 retains the same inference mathematics. **M3 Pro / 36GB, macOS 26.3, AC power, 512×512, standard 8 steps, approximate cache disabled.** Models are resident; the bundled teapot prompt and seed 42 are used.
 
 | Pipeline | End-to-end image generation |
 | --- | ---: |
@@ -118,6 +118,7 @@ curl http://127.0.0.1:7861/image/JOB_ID -o result.png
 | `GET /api/health`, `/api/state` | HTTP identity, engine state, job progress and results |
 | `POST /api/generate`, `/api/cancel` | Create / cancel a job; 409 when busy or not ready, 400 for invalid parameters |
 | `POST /api/engine/start`, `/api/engine/stop` | Load / release resident models; JSON body `{}` |
+| `POST /api/jobs/{id}/delete` | Move a completed image and parameter JSON together to the system Trash |
 | `GET /image/{id}`, `/metadata/{id}` | Completed job's PNG / parameters |
 | `GET/POST /api/settings` | Desktop-mode model settings; inference must be stopped before writing |
 | `GET /api/downloads` | Model catalog and download status |

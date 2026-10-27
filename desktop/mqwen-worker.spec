@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy
 from pathlib import Path
 root=Path(SPECPATH).parent
 metadata=[]
-for package in ['mlx','mflux','transformers','huggingface-hub','tokenizers','numpy','Pillow','safetensors','tqdm','regex','packaging','pyyaml','requests']:
+for package in ['mlx','mflux','transformers','huggingface-hub','tokenizers','numpy','Pillow','safetensors','Send2Trash','tqdm','regex','packaging','pyyaml','requests']:
     metadata+=copy_metadata(package)
 a=Analysis([str(root/'desktop/worker.py')],pathex=[str(root/'src')],
     binaries=[],datas=collect_data_files('mqwen')+collect_data_files('mlx')+collect_data_files('mflux')+metadata,

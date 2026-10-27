@@ -17,10 +17,11 @@ cp README.md LICENSE THIRD_PARTY.md "$APP/Contents/Resources/"
 "$PY" - <<'PY'
 import importlib.metadata as meta
 from pathlib import Path
-import plistlib,shutil,sysconfig
+import plistlib,shutil,sysconfig,tomllib
+version=tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
 app=Path('dist/MQwen.app/Contents')
 with (app/'Info.plist').open('wb') as file:
- plistlib.dump(dict(CFBundleName='MQwen',CFBundleDisplayName='MQwen',CFBundleIdentifier='com.mqwen.studio',CFBundleExecutable='MQwen',CFBundlePackageType='APPL',CFBundleShortVersionString='0.3.0',CFBundleVersion='3',CFBundleIconFile='AppIcon',LSMinimumSystemVersion='26.0',LSApplicationCategoryType='public.app-category.graphics-design',NSHighResolutionCapable=True,NSAppTransportSecurity=dict(NSAllowsLocalNetworking=True),NSHumanReadableCopyright='MQwen contributors. Source MIT; see THIRD_PARTY.md for dependencies and model terms.'),file)
+ plistlib.dump(dict(CFBundleName='MQwen',CFBundleDisplayName='MQwen',CFBundleIdentifier='com.mqwen.studio',CFBundleExecutable='MQwen',CFBundlePackageType='APPL',CFBundleShortVersionString=version,CFBundleVersion=version,CFBundleIconFile='AppIcon',LSMinimumSystemVersion='26.0',LSApplicationCategoryType='public.app-category.graphics-design',NSHighResolutionCapable=True,NSAppTransportSecurity=dict(NSAllowsLocalNetworking=True),NSHumanReadableCopyright='MQwen contributors. Source MIT; see THIRD_PARTY.md for dependencies and model terms.'),file)
 # Include dependency license files available in the build environment; this is
 # deliberately a superset, and does not imply every distribution is executed.
 base=app/'Resources/Licenses';base.mkdir()

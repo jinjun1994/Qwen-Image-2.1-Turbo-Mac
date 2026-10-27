@@ -5,3 +5,10 @@
 .cache-toggle{display:flex;align-items:center;gap:8px;margin-top:16px}.cache-toggle input{width:auto;accent-color:var(--accent)}
 
 .settings{margin-top:24px}.settings>details{padding-bottom:14px}.path-row{display:flex;gap:8px}.path-row input{flex:1;min-width:0}.path-row button,.settings button{border:1px solid var(--border);border-radius:7px;padding:8px 12px;background:var(--surface);color:var(--ink)}.settings input{font-size:12px}.model-status{color:var(--muted);font-size:11px}.settings pre{font-size:12px;max-height:none}.settings a{color:var(--accent)}#settings-message{white-space:pre-wrap}#download-status{overflow-wrap:anywhere}
+
+#language{width:auto;min-width:95px;padding:6px 9px;margin:0;font-size:12px}.engine-actions{flex-wrap:wrap}header{height:auto;min-height:82px;gap:12px;padding-top:12px;padding-bottom:12px}.device{white-space:nowrap}@media(max-width:1100px){.edition{display:none}.device{font-size:10px}.engine-actions button{padding:6px 8px}}
+.gallery-card{min-width:0}.gallery-card .thumbnail{width:100%}.delete-image{margin-top:6px;padding:6px 10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:7px;font-size:11px}.delete-image:hover{color:var(--error);border-color:var(--error)}.result-bar{flex-wrap:wrap}dialog{max-width:460px;width:calc(100% - 40px);padding:26px;border:1px solid var(--border);border-radius:14px;background:var(--panel);color:var(--ink)}dialog::backdrop{background:#0009}dialog h2{font-size:19px}dialog p{color:var(--muted)}#delete-confirm{background:#6b302e;color:#fff}#delete-dismiss{background:var(--surface);color:var(--ink);border:1px solid var(--border);padding:10px 16px;border-radius:7px}
+
+label > .i18n-text{font:inherit;color:inherit;font-weight:inherit}#generate > .i18n-text{font:inherit}
+
+.prompt-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.prompt-heading label{margin-bottom:8px}.prompt-random{flex-shrink:0;background:var(--surface);color:var(--accent);border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:11px}label > .i18n-text + span{margin-left:6px}

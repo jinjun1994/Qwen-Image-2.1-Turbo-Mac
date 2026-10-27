@@ -6,7 +6,7 @@ Apple Silicon 本地影像工作室：桌面 App、WebUI、CLI 和生图 API。�
 
 ## 下载与安装
 
-从 [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases) 下载 `MQwen-0.3.0-arm64.dmg`，打开后将 `MQwen.app` 拖到 Applications。桌面版内置 Python 与运行依赖，**不包含模型权重**。
+从 [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases) 下载 `MQwen-0.4.0-arm64.dmg`，打开后将 `MQwen.app` 拖到 Applications。桌面版内置 Python 与运行依赖，**不包含模型权重**。
 
 - **要求**：Apple Silicon、macOS 26+；已验证 M3 Pro / 36GB / macOS 26.3。其他配置尚未实测，不能将权重大小当作全部内存需求。
 - **签名**：当前为 ad-hoc 签名测试版，尚未经过 Apple Developer ID 签名或公证，其他 Mac 可能受 Gatekeeper 阻止。
@@ -27,13 +27,15 @@ Apple Silicon 本地影像工作室：桌面 App、WebUI、CLI 和生图 API。�
 
 ## 开始生图
 
-1. 打开 MQwen；顶部控制 **WebUI / API 整体服务**，默认地址 `http://127.0.0.1:7861`。端口占用时可修改。
-2. 点击“模型与 API”，分别选择 Turbo DiT、文本编码器和 VAE，保存路径。
-3. 点击“启动推理服务”，等待模型加载完成。
-4. 输入提示词，设置总像素 / 分辨率、宽高比和种子。建议先用 **512×512、标准 8 步、关闭跨步缓存**。
-5. 点击生成；支持预览、取消、历史作品和保存 PNG。图片及参数 JSON 位于 `~/Pictures/MQwen/`。
+1. 打开 MQwen（默认英文，右上角 **English / 中文** 可切换并记住选择；桌面工具栏与内嵌界面同步）。顶部控制 **WebUI / API 整体服务**，默认地址 `http://127.0.0.1:7861`。端口占用时可修改。
+2. 点击 **Models & API（模型与 API）**，分别选择 Turbo DiT、文本编码器和 VAE，保存路径。
+3. 点击 **Start inference（启动推理服务）**，等待模型加载完成。
+4. 输入提示词，或点击 **Random prompt（随机提示词）** 从六条内置原文中随机填入（不自动生图，也不随界面语言翻译），再设置总像素 / 分辨率、宽高比和种子。建议先用 **512×512、标准 8 步、关闭跨步缓存**。
+5. 点击生成；支持预览、取消、历史作品和保存 PNG。最近作品中的 **Move to Trash（移到废纸篓）** 会在确认后，将 PNG 与参数 JSON 一起移入系统废纸篓；可从废纸篓恢复，正在生成的作品不可删除。废纸篓中的 `MQwen-deleted-…` 文件夹保留这两个文件；需要恢复到作品列表时，将文件放回输出目录并重启 WebUI/API。图片及参数 JSON 位于 `~/Pictures/MQwen/`。
 
 模型保持常驻，直到关闭推理服务。页面中的“关闭推理服务”只释放模型；桌面顶部“关闭 WebUI / API”停止整个 HTTP 服务并释放模型。退出 App 会关闭它自己启动的服务；生成中关闭需要等待当前 GPU 操作结束。
+
+独立 WebUI 的语言选择保存在当前浏览器中；桌面版保存在 App 设置中，重启后保持。切换不会清空提示词、尺寸或未保存的模型路径，也不会重载模型。系统文件对话框遵循 macOS 自身语言；技术诊断日志保留原文。
 
 设置：`~/Library/Application Support/MQwen/settings.json`；日志：同目录 `server.log`。
 
@@ -47,7 +49,7 @@ Apple Silicon 本地影像工作室：桌面 App、WebUI、CLI 和生图 API。�
 | 文本编码器 | `qwen3vl_8b_int8_convrot.safetensors` |
 | VAE | `qwen_image_2.1_vae_bf16.safetensors` |
 
-“模型与 API → 从公开源下载模型”支持：
+**Models & API → Download models（模型与 API → 从公开源下载模型）** 支持：
 
 - **Hugging Face**：[Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)，内置固定版本与 SHA-256。
 - **ModelScope / 其他公开源**：填写文件的公开 HTTPS 直链及发布者 SHA-256；无内置未经核验的镜像或登录管理。
@@ -56,7 +58,7 @@ Apple Silicon 本地影像工作室：桌面 App、WebUI、CLI 和生图 API。�
 
 ## 性能
 
-**M3 Pro / 36GB、macOS 26.3、交流电、512×512、标准 8 步、关闭近似缓存**；模型常驻，示例茶壶提示词、seed 42。
+以下为 0.3.0 的实测记录；0.4.0 沿用相同推理数学。**M3 Pro / 36GB、macOS 26.3、交流电、512×512、标准 8 步、关闭近似缓存**；模型常驻，示例茶壶提示词、seed 42。
 
 | 路径 | 完整生图耗时 |
 | --- | ---: |
@@ -118,6 +120,7 @@ curl http://127.0.0.1:7861/image/JOB_ID -o result.png
 | `GET /api/health`、`/api/state` | HTTP 身份、引擎状态、任务进度和结果 |
 | `POST /api/generate`、`/api/cancel` | 创建 / 取消任务；未就绪或忙返回 409，参数错误返回 400 |
 | `POST /api/engine/start`、`/api/engine/stop` | 加载 / 释放常驻模型，JSON 请求体为 `{}` |
+| `POST /api/jobs/{id}/delete` | 将已完成作品的 PNG / JSON 一起移到系统废纸篓 |
 | `GET /image/{id}`、`/metadata/{id}` | 已完成任务的 PNG / 参数 JSON |
 | `GET/POST /api/settings` | 桌面模式模型设置；修改要求推理服务已停止 |
 | `GET /api/downloads` | 模型目录与下载任务状态 |

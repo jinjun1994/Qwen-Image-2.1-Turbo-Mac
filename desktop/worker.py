@@ -13,6 +13,8 @@ if '--runtime-check' in sys.argv:
         print(mx.device_info(),flush=True)
         from mqwen.native import Qwen21Transformer
         print('native imports OK',flush=True)
+        from send2trash import send2trash
+        print('system trash imports OK',flush=True)
     except BaseException:
         traceback.print_exc()
         raise

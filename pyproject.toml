@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mqwen-infer"
-version = "0.3.0"
+version = "0.4.0"
 description = "Native MLX/Metal Qwen Image 2.1 Turbo CLI and local WebUI"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["send2trash==2.1.0"]
 
 [project.optional-dependencies]
 native = ["mlx==0.32.4", "mflux==0.23.0", "numpy==2.5.4", "Pillow==12.3.0", "transformers==5.20.2"]

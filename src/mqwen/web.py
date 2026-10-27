@@ -17,42 +17,44 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 from .generate import output_size
+from .i18n import language, localize_payload
+from . import __version__
 
 
 def request_parameters(data):
     prompt = data.get('prompt')
     if not isinstance(prompt, str) or not prompt.strip() or len(prompt)>12000:
-        raise ValueError('请输入 1–12000 字符的提示词')
+        raise ValueError('Enter a prompt of 1–12000 characters')
     raw_seed = data.get('seed', '')
     if raw_seed == '':
         seed = secrets.randbits(32)
     elif isinstance(raw_seed, str) and re.fullmatch(r'\d{1,20}', raw_seed):
         seed = int(raw_seed)
     else:
-        raise ValueError('种子须为无符号整数，留空为随机')
+        raise ValueError('Seed must be an unsigned integer; leave blank for random')
     if not 0 <= seed < 2**64:
-        raise ValueError('种子超出 64 位整数范围')
+        raise ValueError('Seed is outside the unsigned 64-bit range')
     mode = data.get('mode')
     if mode == 'pixels':
         mp = data.get('megapixels')
         ratio = data.get('ratio')
         if type(mp) not in (int, float) or not math.isfinite(mp) or not .1 <= mp <= 4:
-            raise ValueError('总像素须为 0.1–4 MP')
+            raise ValueError('Total pixels must be between 0.1 and 4 MP')
         if ratio not in ('1:1','4:3','3:4','16:9','9:16','3:2','2:3'):
-            raise ValueError('不支持的宽高比')
+            raise ValueError('Unsupported aspect ratio')
         width, height = output_size({'aspect_ratio':ratio,'megapixels':mp,'multiple':32})
     elif mode == 'resolution':
         width, height = output_size({}, data.get('width'), data.get('height'))
         if width is None or height is None:
-            raise ValueError('请指定宽高')
+            raise ValueError('Specify both width and height')
     else:
-        raise ValueError('请选择总像素或自定义分辨率')
+        raise ValueError('Choose total pixels or custom resolution')
     steps=data.get('steps',8)
     if type(steps) is not int or steps not in (4,6,8):
-        raise ValueError('步数须为 4、6 或 8')
+        raise ValueError('Steps must be 4, 6 or 8')
     step_cache=data.get('step_cache',False)
     if type(step_cache) is not bool or (step_cache and steps != 8):
-        raise ValueError('跨步缓存须为布尔值，且仅支持 8 步模式')
+        raise ValueError('Cross-step cache must be a boolean and requires 8 steps')
     return dict(prompt=prompt.strip(), seed=seed, width=width, height=height,steps=steps,step_cache=step_cache)
 
 
@@ -75,7 +77,7 @@ class Jobs:
                 if result.get('backend') != 'mlx-metal' or not png.is_file() or png.is_symlink():
                     continue
                 key = 'saved-'+path.stem
-                self.jobs[key] = dict(id=key,status='completed',progress=100,stage='已完成',
+                self.jobs[key] = dict(id=key,status='completed',progress=100,stage='Completed',
                                      params={**{k:result[k] for k in ('prompt','seed','width','height')},'steps':result.get('steps',8),
                                              'step_cache':result.get('step_cache',{}).get('enabled',False)},
                                      created=path.stat().st_mtime,metadata=result,image=str(png),logs=[])
@@ -97,13 +99,13 @@ class Jobs:
                 return
             step = re.search(r'denoise (\d+)/(\d+):',line)
             if step:
-                job.update(stage=f'去噪 {step[1]}/{step[2]}',progress=20+int(64*int(step[1])/int(step[2])))
+                job.update(stage=f'Denoising {step[1]}/{step[2]}',progress=20+int(64*int(step[1])/int(step[2])))
             elif '[mqwen] text_encode:' in line:
-                job.update(stage='复用常驻 DiT',progress=15)
+                job.update(stage='Reusing resident DiT',progress=15)
             elif '[mqwen] dit_load:' in line:
-                job.update(stage='去噪 0/'+str(job['params'].get('steps',8)),progress=20)
+                job.update(stage='Denoising 0/'+str(job['params'].get('steps',8)),progress=20)
             elif '[mqwen] denoise:' in line:
-                job.update(stage='VAE 解码',progress=90)
+                job.update(stage='VAE decoding',progress=90)
 
     def _worker(self):
         engine = None
@@ -138,17 +140,17 @@ class Jobs:
                 args = SimpleNamespace(**vars(self.args),**params,output=str(destination))
                 try:
                     if engine is None:
-                        raise RuntimeError('请先启动推理服务')
+                        raise RuntimeError('Start inference first')
                     result = engine.generate(args,self.cancel_event.is_set)
                     with self.lock:
-                        self.jobs[key].update(status='completed',stage='已完成',progress=100,metadata=result)
+                        self.jobs[key].update(status='completed',stage='Completed',progress=100,metadata=result)
                 except GenerationCancelled:
                     with self.lock:
-                        self.jobs[key].update(status='cancelled',stage='已取消')
+                        self.jobs[key].update(status='cancelled',stage='Cancelled')
                 except Exception as exc:
                     self._log(traceback.format_exc())
                     with self.lock:
-                        self.jobs[key].update(status='failed',stage='生成失败',error=str(exc))
+                        self.jobs[key].update(status='failed',stage='Generation failed',error=str(exc))
                 finally:
                     with self.lock:
                         self.active = None
@@ -159,7 +161,7 @@ class Jobs:
     def start_engine(self):
         with self.lock:
             if self.stopping or self.engine_state == 'stopping':
-                raise RuntimeError('服务正在关闭，请稍后再启动')
+                raise RuntimeError('Service is shutting down; wait before restarting')
             if self.engine_state in ('ready','loading'):
                 return
             self.engine_state = 'loading'
@@ -172,7 +174,7 @@ class Jobs:
                 return
             self.engine_state = 'stopping'
             if self.active:
-                self.jobs[self.active].update(status='cancelling',stage='正在取消并关闭推理服务')
+                self.jobs[self.active].update(status='cancelling',stage='Cancelling and stopping inference')
             self.cancel_event.set()
             self.pending.put(('stop',))
 
@@ -187,12 +189,12 @@ class Jobs:
         params = request_parameters(data)
         with self.lock:
             if self.stopping or self.engine_state != 'ready':
-                raise RuntimeError(getattr(self,'engine_error',None) or '请等待推理服务就绪，或点击启动推理服务')
+                raise RuntimeError(getattr(self,'engine_error',None) or 'Wait for inference to be ready, or start inference')
             if self.active is not None:
-                raise RuntimeError('已有任务正在生成，请等待完成或取消')
+                raise RuntimeError('A job is already running; wait for it or cancel it')
             key = secrets.token_hex(12)
             destination = self.output/f'web-{key}.png'
-            job = dict(id=key,status='running',progress=2,stage='准备模型',params=params,
+            job = dict(id=key,status='running',progress=2,stage='Preparing models',params=params,
                        created=time.time(),logs=deque(maxlen=160),image=str(destination))
             self.jobs[key] = job
             self.active = key
@@ -205,8 +207,19 @@ class Jobs:
     def cancel(self):
         with self.lock:
             if self.active is not None:
-                self.jobs[self.active].update(status='cancelling',stage='正在取消，等待当前 GPU 运算结束')
+                self.jobs[self.active].update(status='cancelling',stage='Cancelling; waiting for the current GPU operation')
                 self.cancel_event.set()
+
+    def delete(self,key):
+        from .gallery import trash_image
+        with self.lock:
+            job=self.jobs.get(key)
+            if job is None:raise FileNotFoundError('Image not found')
+            if job['status']!='completed' or self.active==key:
+                raise RuntimeError('Only completed images can be moved to Trash')
+            trashed=trash_image(job['image'],self.output)
+            del self.jobs[key]
+            return dict(ok=True,trashed=trashed)
 
     def state(self):
         with self.lock:
@@ -240,7 +253,7 @@ def serve(args):
 
         def reply(self,code,body,content_type='application/json; charset=utf-8'):
             if isinstance(body,dict):
-                body = json.dumps(body,ensure_ascii=False).encode()
+                body = json.dumps(localize_payload(body,language(self.headers.get('Accept-Language',''))),ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header('Content-Type',content_type)
             self.send_header('Content-Length',str(len(body)))
@@ -264,8 +277,8 @@ def serve(args):
             if route=='/api/downloads' and downloads:
                 return self.reply(200,downloads.snapshot())
             if route=='/api/health':
-                return self.reply(200,{'service':'mqwen','pid':os.getpid(),'version':'0.3.0'})
-            static = {'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+                return self.reply(200,{'service':'mqwen','pid':os.getpid(),'version':__version__})
+            static = {'/prompts.json':('prompts.json','application/json; charset=utf-8'),'/i18n.js':('i18n.js','text/javascript; charset=utf-8'),'/i18n.json':('i18n.json','application/json; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
             if route in static:
                 file,mime = static[route]
                 return self.reply(200,(assets/file).read_bytes(),mime)
@@ -298,9 +311,9 @@ def serve(args):
                 if self.path=='/api/settings' and preferences:
                     with jobs.lock:
                         if jobs.engine_state not in ('stopped','failed') or jobs.active:
-                            raise RuntimeError('请先关闭推理服务再更改模型路径')
+                            raise RuntimeError('Stop inference before changing model paths')
                         if downloads and downloads.thread and downloads.thread.is_alive():
-                            raise RuntimeError('请先完成或取消下载')
+                            raise RuntimeError('Finish or cancel the download first')
                         saved=preferences.save(data)
                         preferences.apply(args)
                     return self.reply(200,saved)
@@ -318,6 +331,9 @@ def serve(args):
                     self.reply(202,{'ok':True})
                     threading.Thread(target=server.shutdown,daemon=True).start()
                     return
+                deletion=re.fullmatch(r'/api/jobs/([A-Za-z0-9_-]+)/delete',self.path)
+                if deletion:
+                    return self.reply(200,jobs.delete(deletion[1]))
                 if self.path=='/api/generate':
                     return self.reply(202,{'id':jobs.start(data)})
                 if self.path=='/api/engine/start':
@@ -334,6 +350,8 @@ def serve(args):
                 self.reply(400,{'error':str(exc)})
             except RuntimeError as exc:
                 self.reply(409,{'error':str(exc)})
+            except FileNotFoundError as exc:
+                self.reply(404,{'error':str(exc)})
             except OSError as exc:
                 self.reply(500,{'error':str(exc)})
     server = Server(('127.0.0.1',args.port),Handler)
