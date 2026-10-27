@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.egg-info/
+build/
+dist/
+reports/
+*.mqwen
+outputs/
+
+.DS_Store
+.env
+.env.*
+*.safetensors
+*.gguf
+*.part

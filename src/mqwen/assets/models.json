@@ -1,0 +1,31 @@
+{
+  "repository": "Comfy-Org/Qwen-Image-2.1",
+  "revision": "0217efd1d9c9452e84f6448903d6e21bfa171ffd",
+  "license_url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1",
+  "models": {
+    "dit": {
+      "filename": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "bytes": 7256787829,
+      "sha256": "8144a0182964aa8403ad6dbc011db837304167d235161b9aabaa8532e967314c",
+      "urls": {
+        "huggingface": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/0217efd1d9c9452e84f6448903d6e21bfa171ffd/diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors"
+      }
+    },
+    "text_encoder": {
+      "filename": "qwen3vl_8b_int8_convrot.safetensors",
+      "bytes": 9350798360,
+      "sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f",
+      "urls": {
+        "huggingface": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/0217efd1d9c9452e84f6448903d6e21bfa171ffd/text_encoders/qwen3vl_8b_int8_convrot.safetensors"
+      }
+    },
+    "vae": {
+      "filename": "qwen_image_2.1_vae_bf16.safetensors",
+      "bytes": 675509688,
+      "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+      "urls": {
+        "huggingface": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/0217efd1d9c9452e84f6448903d6e21bfa171ffd/vae/qwen_image_2.1_vae_bf16.safetensors"
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "version": "0.3.0",
+  "date": "2026-10-28",
+  "hardware": "Apple M3 Pro, 36 GB unified memory",
+  "os": "macOS 26.3",
+  "power": "AC",
+  "conditions": {
+    "width": 512,
+    "height": 512,
+    "steps": 8,
+    "step_cache": false,
+    "seed": 42,
+    "resident": true,
+    "prompt_cached_hot_runs": true
+  },
+  "prompt": "A small red ceramic teapot on a wooden table beside a window, soft morning sunlight, realistic photograph.",
+  "runs": [
+    {
+      "warmup": true,
+      "total_seconds": 24.431,
+      "timings_seconds": {
+        "text_encode": 0.529,
+        "dit_load": 0.0,
+        "denoise": 22.285,
+        "vae_decode": 1.616
+      },
+      "matches_standard_reference": true,
+      "torch_imported": false
+    },
+    {
+      "warmup": false,
+      "total_seconds": 23.669,
+      "timings_seconds": {
+        "text_encode": 0.001,
+        "dit_load": 0.0,
+        "denoise": 22.483,
+        "vae_decode": 1.183
+      },
+      "matches_standard_reference": true,
+      "torch_imported": false
+    },
+    {
+      "warmup": false,
+      "total_seconds": 23.486,
+      "timings_seconds": {
+        "text_encode": 0.001,
+        "dit_load": 0.0,
+        "denoise": 22.226,
+        "vae_decode": 1.255
+      },
+      "matches_standard_reference": true,
+      "torch_imported": false
+    }
+  ],
+  "hot_total_median_seconds": 23.5775,
+  "comparison": {
+    "comfyui_total_seconds": 90,
+    "source": "User-reported 512x512 result; not a controlled same-condition benchmark"
+  },
+  "notes": [
+    "Engine startup excluded. Hot runs reuse the same prompt and shape.",
+    "No step reduction or approximate cross-step cache.",
+    "Reference identity is against this project native standard output, not ComfyUI noise.",
+    "Measured results, not a fixed latency guarantee."
+  ]
+}
