@@ -12,6 +12,19 @@ Download `MQwen-0.3.0-arm64.dmg` from [Releases](https://github.com/jinjun1994/Q
 - **Signing:** this is an ad-hoc signed test build, without Apple Developer ID signing or notarization. Gatekeeper may block it on other Macs.
 - **Privacy:** prompts and images are processed locally. Network access is used for model downloads you explicitly start. No telemetry or cloud inference.
 
+### First launch: allow MQwen to open
+
+If macOS reports an unidentified developer or says Apple cannot check the app for malicious software, first confirm that the download came from this repository's Releases, then allow this specific app:
+
+1. Double-click `MQwen.app` in Applications. Dismiss the blocked-app alert with **Done** or **Cancel**.
+2. Open ** → System Settings → Privacy & Security**, then scroll to **Security**.
+3. Find the notice about MQwen being blocked and click **Open Anyway**.
+4. Authenticate with Touch ID or an administrator password if prompted, then click **Open** in the confirmation dialog. Subsequent launches should open normally.
+
+If Open Anyway is missing, try launching MQwen again and return to this settings page. This creates an exception for the selected app; there is no need to disable Gatekeeper globally. For a warning that the app will damage your computer or is damaged, download it again and verify the Release SHA-256, or build from source.
+
+These steps follow [Apple's official guidance](https://support.apple.com/en-us/102445), with reference to the open-source [IINA installation FAQ](https://github.com/iina/iina/wiki/FAQ).
+
 ## Generate your first image
 
 1. Open MQwen. The top bar controls the **WebUI / API HTTP service**, at `http://127.0.0.1:7861` by default. Change the port if needed.
