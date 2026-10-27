@@ -1,3 +1,5 @@
+![MQwen app screenshot](docs/images/mqwen-app-screenshot.png)
+
 # MQwen · Qwen-Image 2.1 Turbo for Mac
 
 [中文](README.md) · **English**
