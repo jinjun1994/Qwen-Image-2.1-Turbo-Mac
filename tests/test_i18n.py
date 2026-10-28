@@ -1,4 +1,5 @@
 import json
+import importlib.util
 from pathlib import Path
 import re
 import unittest
@@ -105,3 +106,21 @@ class LocalizedHTTPTests(unittest.TestCase):
             code,presets=self.request('/prompts.json',locale)
             self.assertEqual(code,200)
             self.assertEqual(presets,expected)
+
+    @unittest.skipUnless(importlib.util.find_spec('PIL'),'Pillow optional native dependency')
+    def test_binary_upload_and_same_origin_validation(self):
+        from io import BytesIO
+        from PIL import Image
+        from urllib.request import Request,build_opener,ProxyHandler
+        from urllib.error import HTTPError
+        payload=BytesIO();Image.new('RGBA',(64,64),(90,40,10,128)).save(payload,format='PNG')
+        opener=build_opener(ProxyHandler({}))
+        req=Request(self.base+'/api/uploads',data=payload.getvalue(),headers={'Content-Type':'image/png'})
+        with opener.open(req,timeout=5) as response:
+            self.assertEqual(response.status,201);result=json.load(response)
+        with opener.open(self.base+result['url'],timeout=5) as response:
+            with Image.open(BytesIO(response.read())) as image:self.assertEqual(image.getpixel((0,0)),(90,40,10,128))
+        req=Request(self.base+'/api/uploads',data=payload.getvalue(),headers={'Content-Type':'image/png','Origin':'https://example.org'})
+        with self.assertRaises(HTTPError) as error:opener.open(req,timeout=5)
+        self.assertEqual(error.exception.code,403)
+        error.exception.close()

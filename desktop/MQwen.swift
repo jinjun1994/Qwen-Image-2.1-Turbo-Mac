@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     var port = UserDefaults.standard.integer(forKey: "serverPort")
     let support = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/MQwen")
     var base: URL { URL(string: "http://127.0.0.1:\(port)")! }
-    var version: String { Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "0.4.0" }
+    var version: String { Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "0.5.0" }
     func tr(_ key:String,_ values:[String:String]=[:])->String {
         var result=language == "zh" ? (dictionary[key] ?? key) : key
         for (name,value) in values {result=result.replacingOccurrences(of:"{\(name)}",with:value)}
@@ -138,6 +138,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         if action.shouldPerformDownload {decisionHandler(.download);return}
         if url.scheme=="about" || (url.scheme=="http" && url.host=="127.0.0.1" && url.port==port) {decisionHandler(.allow)}
         else {if ["https","http"].contains(url.scheme ?? ""){NSWorkspace.shared.open(url)};decisionHandler(.cancel)}
+    }
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        guard frame.isMainFrame, let url=webView.url, url.scheme=="http", url.host=="127.0.0.1", url.port==port else {completionHandler(nil);return}
+        let panel=NSOpenPanel();panel.title=tr("Choose source, reference or mask images");panel.prompt=tr("Choose")
+        panel.canChooseDirectories=false;panel.canChooseFiles=true;panel.allowsMultipleSelection=parameters.allowsMultipleSelection
+        panel.allowedContentTypes=[.png,.jpeg,.webP]
+        panel.beginSheetModal(for:window){completionHandler($0 == .OK ? panel.urls:nil)}
     }
     func webView(_ webView:WKWebView,navigationAction:WKNavigationAction,didBecome download:WKDownload){download.delegate=self}
     func download(_ download:WKDownload,decideDestinationUsing response:URLResponse,suggestedFilename:String,completionHandler:@escaping(URL?)->Void) {let panel=NSSavePanel();panel.title=tr("Save PNG");panel.prompt=tr("Save");panel.nameFieldStringValue=suggestedFilename;panel.beginSheetModal(for:window){completionHandler($0 == .OK ? panel.url:nil)}}

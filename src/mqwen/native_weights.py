@@ -127,7 +127,7 @@ def set_path(module, path, value):
         setattr(owner,parts[-1],value)
 
 
-def load_module(module, path, key_transform=lambda k:k, *, vae=False, log=print):
+def load_module(module, path, key_transform=lambda k:k, *, vae=False, log=print, weight_transform=None):
     index = WeightFile(path)
     arrays = mx.load(str(path))
     expected = dict(tree_flatten(module.parameters()))
@@ -148,6 +148,7 @@ def load_module(module, path, key_transform=lambda k:k, *, vae=False, log=print)
             if any(k not in expected for k in targets):
                 raise ValueError(f'Unexpected mapped weight {source} -> {targets}')
             weight = arrays.pop(source)
+            if weight_transform is not None:weight=weight_transform(target,weight)
             pieces = mx.split(weight,2,axis=0) if split else [weight]
             quant_key = source.removesuffix('.weight')+'.comfy_quant'
             config = None
@@ -190,7 +191,7 @@ def load_module(module, path, key_transform=lambda k:k, *, vae=False, log=print)
             count += 1
             if count % 48 == 0:
                 log(f'[mqwen] loaded {count} tensors',flush=True)
-        missing = {k for k in set(expected)-supplied if k != 'rotary_emb.inv_freq' and k != 'time_text_embed.time_proj.freqs' and not k.startswith(('pos_embed.cos_tables.','pos_embed.sin_tables.'))}
+        missing = {k for k in set(expected)-supplied if k not in ('rotary_emb.inv_freq','rotary_pos_emb.inv_freq') and k != 'time_text_embed.time_proj.freqs' and not k.startswith(('pos_embed.cos_tables.','pos_embed.sin_tables.'))}
         if missing:
             raise ValueError(f'Missing model parameters: {sorted(missing)[:20]}')
     return module

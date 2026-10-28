@@ -6,9 +6,18 @@
 
 A local image studio for Apple Silicon, with a desktop app, WebUI, CLI and image-generation API. Text encoding, DiT denoising and VAE decoding run on **MLX / Metal**, using existing ComfyUI INT8 ConvRot weights. Inference does not require ComfyUI or PyTorch.
 
+## Generation and editing
+
+- **Text to image / transparent layers:** choose RGB or RGBA. Explicitly request a transparent background in the prompt when needed.
+- **Multi-reference editing:** select Edit with references, upload a source and up to 9 additional images, and address them as `<image1>`, `<image2>`, etc.
+- **Local edits:** paint on the source or upload a grayscale mask. White edits, black preserves; a final composite preserves pixels outside the mask.
+- **Background removal / fidelity:** includes a background-removal task and editable person/product preservation instructions. Fidelity depends on the model. RGBA exports one image, not automatic multi-layer decomposition.
+
+Editing reuses the same three local weights and loads the vision tower on first use. It needs more memory and processing time than text-only generation. See [editing API and model choices](docs/CAPABILITIES_AND_MODELS.en.md), including smaller VAE alternatives and their quality tradeoffs.
+
 ## Download and install
 
-Download `MQwen-0.4.0-arm64.dmg` from [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases), open it and drag `MQwen.app` into Applications. The desktop app bundles Python and runtime dependencies, **but not model weights**.
+Download `MQwen-0.5.0-arm64.dmg` from [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases), open it and drag `MQwen.app` into Applications. The desktop app bundles Python and runtime dependencies, **but not model weights**.
 
 - **Requirements:** Apple Silicon and macOS 26+. Tested on M3 Pro / 36GB / macOS 26.3. Other configurations have not been tested; weight size is not the total memory requirement.
 - **Signing:** this is an ad-hoc signed test build, without Apple Developer ID signing or notarization. Gatekeeper may block it on other Macs.

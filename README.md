@@ -6,9 +6,18 @@
 
 Apple Silicon 本地影像工作室：桌面 App、WebUI、CLI 和生图 API。文本编码、DiT 去噪与 VAE 解码使用 **MLX / Metal**，复用已有 ComfyUI INT8 ConvRot 权重，推理不依赖 ComfyUI 或 PyTorch。
 
+## 生成与编辑
+
+- **文生图 / 透明图层**：选择 RGB 或 RGBA；生成透明背景时，在提示词中明确说明。
+- **多图参考编辑**：选择“参考图编辑”，上传原图及参考图（最多 10 张），用 `<image1>`、`<image2>` 引用。
+- **局部修改**：在原图上涂绘或上传灰度蒙版；白色修改，黑色保留，最终合成保留蒙版外像素。
+- **移除背景 / 特征保留**：提供背景移除任务及人物、商品保留指令按钮；实际保真取决于模型。RGBA 导出为单张透明图，不包含自动多层分解。
+
+模型能力、较小 VAE、权重取舍和编辑 API 见 [功能与模型说明](docs/CAPABILITIES_AND_MODELS.zh-CN.md)。编辑沿用现有三份权重，首次按需加载视觉塔，所需内存和时间高于普通文生图。
+
 ## 下载与安装
 
-从 [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases) 下载 `MQwen-0.4.0-arm64.dmg`，打开后将 `MQwen.app` 拖到 Applications。桌面版内置 Python 与运行依赖，**不包含模型权重**。
+从 [Releases](https://github.com/jinjun1994/Qwen-Image-2.1-Turbo-Mac/releases) 下载 `MQwen-0.5.0-arm64.dmg`，打开后将 `MQwen.app` 拖到 Applications。桌面版内置 Python 与运行依赖，**不包含模型权重**。
 
 - **要求**：Apple Silicon、macOS 26+；已验证 M3 Pro / 36GB / macOS 26.3。其他配置尚未实测，不能将权重大小当作全部内存需求。
 - **签名**：当前为 ad-hoc 签名测试版，尚未经过 Apple Developer ID 签名或公证，其他 Mac 可能受 Gatekeeper 阻止。

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0 - 2026-10-28
+
+### Features
+
+- Add native MLX reference editing with up to 10 ordered RGB/RGBA images, reusing the resident language model, DiT and full VAE. Load the vision tower from the existing Qwen3-VL checkpoint on first edit.
+- Expose true RGBA PNG output, background-removal instructions, and editable person/product preservation instructions.
+- Add painted and uploaded masks with latent blending and a final composite that preserves unmasked source pixels.
+- Add bounded local image uploads and CLI/API editing options; keep the original RGB text-to-image defaults.
+
+### Documentation
+
+- Document model capabilities separately from guaranteed pixel preservation and automatic layer decomposition.
+- Compare full BF16 weights, tiny VAE alternatives and lower-bit formats without changing the default model precision.
+
+### Validation
+
+- Pass 63 Python tests and 2 browser locale tests; check reference upload, painting and background removal through the WebUI.
+- Complete seven real-weight source runs and one frozen-runtime run, including masked multi-reference edits and RGBA reference edits. Verify unmasked pixels, no Torch imports and pixel-identical legacy RGB output.
+
 ## 0.4.0 - 2026-10-28
 
 ### Features

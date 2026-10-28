@@ -61,6 +61,9 @@ def main():
     gen.add_argument("--wired-memory", choices=['auto','off'], default='auto', help='Bounded Metal physical residency (default: auto)')
     gen.add_argument("--width", type=int)
     gen.add_argument("--height", type=int)
+    gen.add_argument('--image-paths',nargs='+',help='Up to 10 ordered RGB/RGBA references; enables native editing')
+    gen.add_argument('--mask-image',help='Grayscale mask: white edits, black preserves the first reference')
+    gen.add_argument('--output-format',choices=['rgb','rgba'],default='rgb')
     gen.add_argument("--output", required=True)
     for role in FOLDERS:
         gen.add_argument("--" + role.replace("_", "-"))

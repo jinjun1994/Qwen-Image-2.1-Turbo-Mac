@@ -1,9 +1,10 @@
 (async()=>{
 await window.mqwenLocaleReady;
+await window.mqwenEditingReady;
 const $=id=>document.getElementById(id);
 const t=(key,values)=>window.mqwenLocale.t(key,values);
 const headers=()=>({'Accept-Language':window.mqwenLocale.language});
-let engineReady=false,connectionError=false;
+let engineReady=false,connectionError=false,submitPending=false;
 let mode='resolution',busy=false,selected=null,lastState=null,gallerySignature='';
 let modelSettings=null,downloadCatalog=null,downloadTask=null,downloadTimer=null;
 const pathInputs={};
@@ -17,7 +18,7 @@ function updateSize(){
   const [w,h]=size();$('mp-label').textContent=Number($('megapixels').value).toFixed(2)+' MP';$('size-label').textContent=`${w} × ${h} px`;$('actual-mp').textContent=(w*h/1e6).toFixed(2)+' MP';
   const valid=[w,h].every(n=>Number.isInteger(n)&&n>=256&&n<=2048&&n%32===0);
   $('size-note').textContent=t(valid?'Dimensions are aligned to 32 px; actual pixels may differ slightly from the target.':'Dimensions must be multiples of 32 between 256 and 2048. Reduce pixels or adjust the aspect ratio.');
-  $('size-note').classList.toggle('invalid',!valid);$('generate').disabled=busy||!valid||!engineReady;return valid;
+  $('size-note').classList.toggle('invalid',!valid);$('generate').disabled=busy||submitPending||!valid||!engineReady;return valid;
 }
 function setMode(next){mode=next;$('pixels-fields').hidden=mode!=='pixels';$('resolution-fields').hidden=mode!=='resolution';$('pixels-mode').setAttribute('aria-pressed',mode==='pixels');$('resolution-mode').setAttribute('aria-pressed',mode==='resolution');$('width').required=$('height').required=mode==='resolution';updateSize();}
 async function jsonGet(path){const r=await fetch(path,{headers:headers()});const data=await r.json();if(!r.ok)throw Error(data.error||t('Request failed'));return data;}
@@ -25,7 +26,7 @@ async function post(path,data){const r=await fetch(path,{method:'POST',headers:{
 function showError(text){$('error').textContent=text;$('error').hidden=!text;}
 function message(text){$('settings-message').textContent=text;}
 function updateSteps(){
-  $('step-cache').disabled=$('steps').value!=='8';if($('steps').value!=='8')$('step-cache').checked=false;
+  $('step-cache').disabled=$('steps').value!=='8'||$('task').value!=='generate';if($('step-cache').disabled)$('step-cache').checked=false;
   $('steps-note').textContent=t($('steps').value==='8'?'Standard mode uses the original 8-step schedule.':'Reducing steps changes sampling and image quality; 4 steps are for previews.');
 }
 $('pixels-mode').onclick=()=>setMode('pixels');$('resolution-mode').onclick=()=>setMode('resolution');
@@ -44,9 +45,9 @@ $('random-prompt').onclick=async()=>{
   finally{$('random-prompt').disabled=false;}
 };
 $('generation').onsubmit=async event=>{
-  event.preventDefault();if(!updateSize()||busy||!engineReady)return;showError('');
+  event.preventDefault();if(!updateSize()||busy||submitPending||!engineReady)return;showError('');
   const payload={mode,steps:Number($('steps').value),step_cache:$('step-cache').checked,prompt:$('prompt').value,seed:$('seed').value,megapixels:Number($('megapixels').value),ratio:$('ratio').value,width:Number($('width').value),height:Number($('height').value)};
-  busy=true;updateSize();try{selected=(await post('/api/generate',payload)).id;await refresh();}catch(error){busy=false;updateSize();showError(error.message);}
+  submitPending=true;updateSize();try{Object.assign(payload,await window.mqwenEditing.payload());selected=(await post('/api/generate',payload)).id;await refresh();}catch(error){showError(error.message);}finally{submitPending=false;updateSize();}
 };
 $('cancel').onclick=async()=>{try{await post('/api/cancel',{});await refresh();}catch(error){showError(error.message);}};
 for(const operation of ['start','stop'])$('engine-'+operation).onclick=async()=>{showError('');try{await post('/api/engine/'+operation,{});await refresh();}catch(error){showError(error.message);}};

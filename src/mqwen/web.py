@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 from .generate import output_size
 from .i18n import language, localize_payload
 from . import __version__
+from .inputs import MAX_UPLOAD,input_path,store_upload
 
 
 def request_parameters(data):
@@ -55,7 +56,18 @@ def request_parameters(data):
     step_cache=data.get('step_cache',False)
     if type(step_cache) is not bool or (step_cache and steps != 8):
         raise ValueError('Cross-step cache must be a boolean and requires 8 steps')
-    return dict(prompt=prompt.strip(), seed=seed, width=width, height=height,steps=steps,step_cache=step_cache)
+    refs=data.get('references',[])
+    if not isinstance(refs,list) or len(refs)>10 or any(not isinstance(k,str) or not re.fullmatch('[a-f0-9]{32}',k) for k in refs):
+        raise ValueError('Use at most 10 uploaded reference image IDs')
+    mask=data.get('mask')
+    if mask is not None and (not isinstance(mask,str) or not re.fullmatch('[a-f0-9]{32}',mask)):
+        raise ValueError('Invalid uploaded image ID')
+    if mask and not refs:raise ValueError('A mask requires a reference image')
+    if refs and step_cache:raise ValueError('Cross-step cache is unavailable for reference editing')
+    output_format=data.get('output_format','rgb')
+    if output_format not in ('rgb','rgba'):raise ValueError('Output format must be rgb or rgba')
+    return dict(prompt=prompt.strip(), seed=seed, width=width, height=height,steps=steps,step_cache=step_cache,
+                references=refs,mask=mask,output_format=output_format)
 
 
 class Jobs:
@@ -137,8 +149,11 @@ class Jobs:
                         self.engine_state = 'stopped'
                     continue
                 _,key,destination,params = item
-                args = SimpleNamespace(**vars(self.args),**params,output=str(destination))
                 try:
+                    values={**vars(self.args),**params,'output':str(destination)}
+                    values['image_paths']=[str(input_path(self.output,k)) for k in params.get('references',[])]
+                    values['mask_image']=str(input_path(self.output,params['mask'])) if params.get('mask') else None
+                    args = SimpleNamespace(**values)
                     if engine is None:
                         raise RuntimeError('Start inference first')
                     result = engine.generate(args,self.cancel_event.is_set)
@@ -187,6 +202,7 @@ class Jobs:
 
     def start(self, data):
         params = request_parameters(data)
+        for key in params['references']+([params['mask']] if params['mask'] else []):input_path(self.output,key)
         with self.lock:
             if self.stopping or self.engine_state != 'ready':
                 raise RuntimeError(getattr(self,'engine_error',None) or 'Wait for inference to be ready, or start inference')
@@ -276,9 +292,13 @@ def serve(args):
                 return self.reply(200,preferences.snapshot())
             if route=='/api/downloads' and downloads:
                 return self.reply(200,downloads.snapshot())
+            if route.startswith('/input/'):
+                try:path=input_path(jobs.output,route.rsplit('/',1)[-1])
+                except ValueError:return self.reply(404,{'error':'Uploaded image not found; upload it again'})
+                return self.reply(200,path.read_bytes(),'image/png')
             if route=='/api/health':
                 return self.reply(200,{'service':'mqwen','pid':os.getpid(),'version':__version__})
-            static = {'/prompts.json':('prompts.json','application/json; charset=utf-8'),'/i18n.js':('i18n.js','text/javascript; charset=utf-8'),'/i18n.json':('i18n.json','application/json; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+            static = {'/editing.js':('editing.js','text/javascript; charset=utf-8'),'/prompts.json':('prompts.json','application/json; charset=utf-8'),'/i18n.js':('i18n.js','text/javascript; charset=utf-8'),'/i18n.json':('i18n.json','application/json; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
             if route in static:
                 file,mime = static[route]
                 return self.reply(200,(assets/file).read_bytes(),mime)
@@ -303,6 +323,10 @@ def serve(args):
                 return self.reply(403,{'error':'Local origin required'})
             try:
                 length = int(self.headers.get('Content-Length','0'))
+                if self.path=='/api/uploads':
+                    if not 0<length<=MAX_UPLOAD or self.headers.get('Content-Type') not in ('image/png','image/jpeg','image/webp'):
+                        raise ValueError('Upload a PNG, JPEG or WebP image up to 20 MiB')
+                    return self.reply(201,store_upload(jobs.output,self.rfile.read(length)))
                 if not 0<length<=65536 or self.headers.get('Content-Type')!='application/json':
                     raise ValueError('Expected JSON request up to 64 KiB')
                 data = json.loads(self.rfile.read(length))

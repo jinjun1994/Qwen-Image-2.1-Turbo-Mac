@@ -59,6 +59,13 @@ def _generate(args, engine, cancelled=lambda: False):
     prompt = args.prompt if args.prompt is not None else plan['prompt']
     if not isinstance(prompt,str) or not prompt.strip():
         raise ValueError('Prompt must be non-empty')
+    image_paths=getattr(args,'image_paths',None) or []
+    mask_path=getattr(args,'mask_image',None)
+    output_format=getattr(args,'output_format','rgb')
+    if output_format not in ('rgb','rgba'):raise ValueError('Output format must be rgb or rgba')
+    if len(image_paths)>10:raise ValueError('Use at most 10 reference images')
+    if mask_path and not image_paths:raise ValueError('A mask requires a reference image')
+    if image_paths and getattr(args,'step_cache',False):raise ValueError('Cross-step cache is unavailable for reference editing')
     seed = plan['seed'] if args.seed is None else args.seed
     if not 0 <= seed < 2**64:
         raise ValueError('Seed must be an unsigned 64-bit integer')
@@ -91,26 +98,28 @@ def _generate(args, engine, cancelled=lambda: False):
     begin = time.perf_counter()
     tokenizer = engine.tokenizer
     check_cancel()
-    template = PROMPT_TEMPLATE.format(prompt)
-    token_ids = tokenizer.encode(template)
-    if len(token_ids)>2048:
-        raise ValueError('Prompt exceeds 2048 tokens; shorten it explicitly')
-    drop = len(tokenizer.encode(SYSTEM_PREFIX))
-    cache_hit = prompt in engine.prompts
-    if cache_hit:
-        embeds = engine.prompts.pop(prompt)
-        engine.prompts[prompt] = embeds
-        print('[mqwen] prompt cache hit',flush=True)
-    else:
-        ids = mx.array([token_ids],dtype=mx.int32)
-        positions = mx.broadcast_to(mx.arange(len(token_ids))[None,None,:],(3,1,len(token_ids)))
-        embeds = engine.text(engine.text.embed_tokens(ids),positions)[:,drop:]
-        mx.eval(embeds)
-        if not bool(mx.all(mx.isfinite(embeds)).item()):
-            raise RuntimeError('Non-finite text features')
-        engine.prompts[prompt] = embeds
-        while len(engine.prompts)>4:
-            engine.prompts.pop(next(iter(engine.prompts)))
+    cache_hit=False
+    if not image_paths:
+        template = PROMPT_TEMPLATE.format(prompt)
+        token_ids = tokenizer.encode(template)
+        if len(token_ids)>2048:
+            raise ValueError('Prompt exceeds 2048 tokens; shorten it explicitly')
+        drop = len(tokenizer.encode(SYSTEM_PREFIX))
+        cache_hit = prompt in engine.prompts
+        if cache_hit:
+            embeds = engine.prompts.pop(prompt)
+            engine.prompts[prompt] = embeds
+            print('[mqwen] prompt cache hit',flush=True)
+        else:
+            ids = mx.array([token_ids],dtype=mx.int32)
+            positions = mx.broadcast_to(mx.arange(len(token_ids))[None,None,:],(3,1,len(token_ids)))
+            embeds = engine.text(engine.text.embed_tokens(ids),positions)[:,drop:]
+            mx.eval(embeds)
+            if not bool(mx.all(mx.isfinite(embeds)).item()):
+                raise RuntimeError('Non-finite text features')
+            engine.prompts[prompt] = embeds
+            while len(engine.prompts)>4:
+                engine.prompts.pop(next(iter(engine.prompts)))
     mark('text_encode',begin)
     begin = time.perf_counter()
     check_cancel()
@@ -118,30 +127,40 @@ def _generate(args, engine, cancelled=lambda: False):
     print('[mqwen] resident DiT reused',flush=True)
     mark('dit_load',begin)
     begin = time.perf_counter()
-    latents = denoise_latents(engine.transformer,embeds,width,height,seed,schedule,
-                              log=print,check_cancel=check_cancel)
+    source=mask=None
+    if image_paths:
+        from .editing import denoise_edit
+        latents,source,mask=denoise_edit(engine,prompt,width,height,seed,schedule,image_paths,mask_path,check_cancel)
+    else:
+        latents = denoise_latents(engine.transformer,embeds,width,height,seed,schedule,
+                                  log=print,check_cancel=check_cancel)
     if engine._active_step_cache is not None:
         reused = engine._active_step_cache.stats()['reused_steps']
         print(f'[mqwen] residual cache reused steps: {reused}; threshold=0.08',flush=True)
     if not bool(mx.all(mx.isfinite(latents)).item()):
         raise RuntimeError('Non-finite denoised latents')
-    mark('denoise',begin)
+    mark('edit_encode_and_denoise' if image_paths else 'denoise',begin)
     check_cancel()
     begin = time.perf_counter()
     vae = engine.vae
     nchw = latents.reshape(1,height//16,width//16,64).transpose(0,3,1,2).astype(mx.float32)
-    decoded = vae.decode(nchw)
+    if output_format=='rgba':
+        from .editing import decode_rgba
+        decoded=decode_rgba(vae,nchw)
+    else:decoded = vae.decode(nchw)
     pixels = mx.clip(decoded/2+0.5,0,1).transpose(0,2,3,1)
     mx.eval(pixels)
     check_cancel()
     if not bool(mx.all(mx.isfinite(pixels)).item()):
         raise RuntimeError('Non-finite VAE output')
     array = np.rint(np.asarray(pixels[0])*255).astype(np.uint8)
-    if array.shape != (height,width,3) or array.std()<1:
+    if array.shape != (height,width,4 if output_format=='rgba' else 3) or array[...,:3].std()<1:
         raise RuntimeError(f'Invalid decoded image: {array.shape}, std={array.std()}')
     mark('vae_decode',begin)
     result = dict(backend='mlx-metal',mlx=mx.__version__,mflux=importlib.metadata.version('mflux'),
                   prompt=prompt,seed=seed,width=width,height=height,steps=steps,sigmas=schedule,
+                  output_format=output_format,reference_images=[str(Path(p).resolve()) for p in image_paths],
+                  masked_edit=mask_path is not None,
                   models=paths,tokenizer=str(Path(args.tokenizer).resolve()),
                   workflow=str(Path(args.workflow).resolve()),timings_seconds=timings,
                   total_seconds=round(time.perf_counter()-start,3),
@@ -158,7 +177,12 @@ def _generate(args, engine, cancelled=lambda: False):
                   rng='mlx.random; high 32 seed bits folded in when nonzero',quantization='INT8 codes preserved; BF16 affine scales and activations')
     metadata = PngImagePlugin.PngInfo()
     metadata.add_text('mqwen',json.dumps(result,ensure_ascii=False))
-    Image.fromarray(array).save(output,pnginfo=metadata)
+    image=Image.fromarray(array)
+    if mask is not None:
+        from .editing import composite_mask
+        image=composite_mask(image,source,mask)
+        if output_format=='rgb':image=image.convert('RGB')
+    image.save(output,pnginfo=metadata)
     output.with_suffix('.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
     print(f'[mqwen] saved {output}',flush=True)
     return result
@@ -239,6 +263,7 @@ class NativeEngine:
 
     def close(self):
         self.prompts.clear()
+        self.vision_encoder=None
         self.transformer.clear_text_cache()
         self.transformer._step_fn = self.transformer._image_step_fn = None
         self.transformer._geometry_cache.clear()
